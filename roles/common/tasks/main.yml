@@ -1,0 +1,98 @@
+---
+
+- name: Install build tools
+  yum: name={{ item }} state=present
+  with_items:
+    - make
+    - cmake
+    - gcc
+    - gcc-c++
+    - swig
+
+##########
+# GDAL
+
+- name: Download gdal source
+  get_url:
+    url: http://download.osgeo.org/gdal/2.4.1/gdal-2.4.1.tar.gz
+    dest: /usr/local/src
+    timeout: 60
+
+- name: Expand gdal source
+  command: chdir=/usr/local/src
+    tar xvzf gdal-2.4.1.tar.gz
+
+- name: Configure gdal
+  shell:
+    chdir=/usr/local/src/gdal-2.4.1
+    ./configure
+
+- name: Install gdal
+  command:
+      chdir=/usr/local/src/gdal-2.4.1
+      make install
+
+##########
+# cesium-terrain-builder
+
+- name: Install git
+  yum: name={{ item }} state=present
+  with_items:
+    - git
+
+- name: Download cesium-terrain-builder source
+  git:
+    repo=https://github.com/geo-data/cesium-terrain-builder.git
+    dest=/usr/local/src/cesium-terrain-builder
+    force=yes
+
+- name: Create work directory for building cesium-terrain-builder
+  file: path=/usr/local/src/cesium-terrain-builder/build state=directory
+
+- name: Install zlib-devel
+  yum: name={{ item }} state=present
+  with_items:
+    - zlib-devel
+
+- name: Configure cesium-terrain-builder
+  command: chdir=/usr/local/src/cesium-terrain-builder/build
+      cmake -DGDAL_LIBRARY_DIR=/usr/local/lib \
+      -DGDAL_LIBRARY=/usr/local/lib/libgdal.so \
+      -DGDAL_INCLUDE_DIR=/usr/local/include \
+      ../
+
+- name: Install cesium-terrain-builder
+  command:
+      chdir=/usr/local/src/cesium-terrain-builder/build
+      make install
+
+- name: Install apache
+  yum: name={{ item }} state=present
+  with_items:
+    - httpd
+    - memcached
+    # - proj-epsg
+    - ipa-gothic-fonts.noarch # Japanese Gothic-typeface OpenType font by IPA
+    - ipa-mincho-fonts.noarch # Japanese Mincho-typeface OpenType font by IPA
+    - ipa-pgothic-fonts.noarch # Japanese Proportional Gothic-typeface OpenType font by IPA
+    - ipa-pmincho-fonts.noarch # Japanese Proportional Mincho-typeface OpenType font by IPA
+
+# - name: setup nodejs6.x
+#   become: yes
+#   shell: curl -sL https://rpm.nodesource.com/setup_6.x | sudo -E bash -
+#
+# - name: installing latest version of node.js
+#   become: yes
+#   yum:
+#     name: nodejs
+#     state: latest
+
+- name: update shared lib settings (ldconfig)
+  command:
+    ldconfig
+
+- name: Restart apache
+  service:
+    name=httpd
+    state=restarted
+    enabled=yes
